@@ -34,8 +34,7 @@
           <button
             class="add-to-cart-button"
             @click="addToCart(lesson)"
-            :disabled="lesson.spaces === 0"
-          >
+            :disabled="lesson.spaces === 0" >
             {{ lesson.spaces === 0 ? 'Out of Stock' : 'Add to Cart' }}
           </button>
         </div>
@@ -75,7 +74,7 @@
 <script setup>
 import { ref } from 'vue';
 
-// --- INITIAL DATA STRUCTURE (Commit 1) ---
+// --- INITIAL DATA STRUCTURE ---
 const initialLessons = [
   { id: 1, subject: 'Math', location: 'London', price: 100, spaces: 5, icon: '📐' },
   { id: 2, subject: 'Science', location: 'Paris', price: 150, spaces: 5, icon: '🔬' },
@@ -92,22 +91,19 @@ const initialLessons = [
 
 const lessons = ref(initialLessons);
 const cart = ref([]); 
-
-// --- STATE FOR VIEW TOGGLE (Commit 2) ---
 const isCartVisible = ref(false); 
 
-// --- NEW METHOD: addToCart ---
-/**
- * Adds a lesson to the cart and decrements its space count.
- * @param {Object} lessonToAdd - The lesson object to add.
- */
+// --- METHOD: addToCart (STOCK DECREMENT LOGIC HERE) ---
 function addToCart(lessonToAdd) {
-  // 1. Decrement the space count for the lesson
+  // 1. Find the lesson's index in the main list
   const lessonIndex = lessons.value.findIndex(l => l.id === lessonToAdd.id);
+  
+  // 2. Check if the lesson exists and has spaces left
   if (lessonIndex !== -1 && lessons.value[lessonIndex].spaces > 0) {
+    // 3. DECREMENT STOCK
     lessons.value[lessonIndex].spaces--;
     
-    // 2. Add the lesson (or a copy of it) to the cart
+    // 4. Add the lesson to the cart
     cart.value.push({ ...lessonToAdd });
   }
 }
@@ -132,7 +128,6 @@ h1 {
     color: #333;
 }
 h2 {
-    /* Added style for the Cart View header */
     border-bottom: 2px solid #4CAF50;
     padding-bottom: 5px;
     margin-bottom: 20px;
