@@ -1,25 +1,19 @@
-\<template>
+<template>
   <div id="app">
     <header class="app-header">
       <h1>Lesson Store</h1>
-      <!-- The cart button now toggles the view -->
       <button 
         @click="isCartVisible = !isCartVisible"
         :disabled="cart.length === 0 && !isCartVisible"
         class="cart-button"
       >
-        <!-- Dynamic text based on current view -->
         {{ isCartVisible ? '<< Back to Lessons' : 'View Cart' }} ({{ cart.length }})
       </button>
     </header>
 
-    <!-- LESSONS VIEW (Shown if isCartVisible is false) -->
     <main v-if="!isCartVisible" class="lessons-view">
       
-      <!-- Sorting and Search controls are not yet implemented -->
-      
       <div class="lesson-list">
-        <!-- Iterate over the lessons data structure -->
         <div 
           v-for="lesson in lessons" 
           :key="lesson.id" 
@@ -30,32 +24,76 @@
             <h3>{{ lesson.subject }}</h3>
             <p><strong>Location:</strong> {{ lesson.location }}</p>
             <p><strong>Price:</strong> ${{ lesson.price }}</p>
-            <p><strong>Spaces Left:</strong> {{ lesson.spaces }}</p>
+            <p>
+              <strong>Spaces Left:</strong> 
+              <span :style="{ color: lesson.spaces === 0 ? 'red' : 'green', fontWeight: 'bold' }">
+                {{ lesson.spaces }}
+              </span>
+            </p>
           </div>
           <button
             class="add-to-cart-button"
-            disabled
+            @click="addToCart(lesson)"
+            :disabled="lesson.spaces === 0"
           >
-            Add to Cart
+            {{ lesson.spaces === 0 ? 'Out of Stock' : 'Add to Cart' }}
           </button>
         </div>
       </div>
     </main>
 
-    <!-- CART VIEW (Shown if isCartVisible is true) -->
     <main v-else class="cart-view">
-      <h2>Shopping Cart</h2>
-      <!-- Cart content display is not yet implemented -->
-      <p>Your cart is empty.</p>
+      <h2>🛒 Shopping Cart</h2>
+      
+      <div v-if="cart.length > 0">
+        <div 
+          v-for="item in cart"
+          :key="item.id"
+          class="cart-item"
+        >
+          <div class="cart-item-details">
+            <span>{{ item.icon }} {{ item.subject }} in {{ item.location }}</span>
+            <p>Price: ${{ item.price }}</p>
+          </div>
+          <button @click="removeFromCart(item.id)" class="remove-button">
+            Remove
+          </button>
+        </div>
+
+        <hr>
+
+        <h3>Customer Information</h3>
+        <form @submit.prevent="submitCheckout" class="checkout-form">
+          <div class="form-group">
+            <label for="name">Name:</label>
+            <input type="text" id="name" v-model="checkout.name" required>
+          </div>
+          <div class="form-group">
+            <label for="phone">Phone:</label>
+            <input type="tel" id="phone" v-model="checkout.phone" pattern="[0-9]*" required>
+          </div>
+          
+          <button 
+            type="submit" 
+            :disabled="!isFormValid"
+            class="submit-button"
+          >
+            Place Order
+          </button>
+          <p v-if="!isFormValid" class="validation-message">Please fill in both name and a numeric phone number.</p>
+        </form>
+
+      </div>
+      <p v-else>Your cart is empty.</p>
     </main>
 
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 
-// --- INITIAL DATA STRUCTURE (Commit 1) ---
+// --- INITIAL DATA STRUCTURE ---
 const initialLessons = [
   { id: 1, subject: 'Math', location: 'London', price: 100, spaces: 5, icon: '📐' },
   { id: 2, subject: 'Science', location: 'Paris', price: 150, spaces: 5, icon: '🔬' },
@@ -72,11 +110,77 @@ const initialLessons = [
 
 const lessons = ref(initialLessons);
 const cart = ref([]); 
-
-// --- NEW STATE FOR VIEW TOGGLE (Commit 2) ---
 const isCartVisible = ref(false); 
 
-// No computed properties or methods are defined yet.
+// --- NEW STATE FOR CHECKOUT FORM ---
+const checkout = ref({
+  name: '',
+  phone: ''
+});
+
+// --- COMPUTED PROPERTY FOR FORM VALIDATION ---
+const isFormValid = computed(() => {
+  // Check if name is not empty and phone contains only digits (basic validation)
+  return checkout.value.name.trim() !== '' && /^\d+$/.test(checkout.value.phone);
+});
+
+// --- METHODS (FUNCTIONS) ---
+
+/**
+ * Adds a lesson to the cart and decrements its space count.
+ * @param {Object} lessonToAdd - The lesson object to add.
+ */
+function addToCart(lessonToAdd) {
+  // 1. Decrement the space count for the lesson
+  const lessonIndex = lessons.value.findIndex(l => l.id === lessonToAdd.id);
+  if (lessonIndex !== -1 && lessons.value[lessonIndex].spaces > 0) {
+    lessons.value[lessonIndex].spaces--;
+    
+    // 2. Add the lesson (or a copy of it) to the cart
+    // Note: In a real app, you'd manage quantities. Here, we add the whole object.
+    cart.value.push({ ...lessonToAdd });
+  }
+}
+
+/**
+ * Removes a lesson from the cart and increments the space count.
+ * @param {number} lessonId - The ID of the lesson to remove.
+ */
+function removeFromCart(lessonId) {
+  // 1. Find and remove the first instance of the item from the cart
+  const cartIndex = cart.value.findIndex(item => item.id === lessonId);
+  if (cartIndex !== -1) {
+    cart.value.splice(cartIndex, 1);
+    
+    // 2. Increment the space count in the lessons list
+    const lessonIndex = lessons.value.findIndex(l => l.id === lessonId);
+    if (lessonIndex !== -1) {
+      lessons.value[lessonIndex].spaces++;
+    }
+  }
+}
+
+/**
+ * Handles the submission of the checkout form.
+ */
+function submitCheckout() {
+  if (isFormValid.value) {
+    console.log("Order Placed!");
+    console.log("Customer:", checkout.value.name, "Phone:", checkout.value.phone);
+    console.log("Items:", cart.value.map(item => item.subject));
+    
+    // Alert the user and reset the state
+    alert(`Order placed successfully for ${cart.value.length} lessons! Thank you, ${checkout.value.name}.`);
+    
+    // Clear the cart and reset the form
+    cart.value = [];
+    checkout.value.name = '';
+    checkout.value.phone = '';
+    isCartVisible.value = false; // Go back to the lessons view
+  } else {
+    alert('Please complete the form correctly.');
+  }
+}
 </script>
 
 <style scoped>
@@ -155,8 +259,83 @@ h2 {
   color: white;
   border: none;
   border-radius: 5px;
+  cursor: pointer;
+}
+.add-to-cart-button:hover:not([disabled]) {
+    background-color: #0056b3;
 }
 .add-to-cart-button[disabled] {
     background-color: #ccc;
+    cursor: not-allowed;
+}
+/* --- Cart View Styles --- */
+.cart-view {
+    max-width: 600px;
+    margin: 0 auto;
+}
+.cart-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px dashed #eee;
+}
+.cart-item:last-of-type {
+    border-bottom: none;
+    margin-bottom: 20px;
+}
+.remove-button {
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+.remove-button:hover {
+    background-color: #c82333;
+}
+/* --- Checkout Form Styles --- */
+.checkout-form {
+    padding: 15px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    background-color: #f9f9f9;
+}
+.form-group {
+    margin-bottom: 15px;
+}
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+.form-group input {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box; /* Ensures padding doesn't affect overall width */
+}
+.submit-button {
+    padding: 10px 20px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+}
+.submit-button:hover:not([disabled]) {
+    background-color: #45a049;
+}
+.submit-button[disabled] {
+    background-color: #aaa;
+    cursor: not-allowed;
+}
+.validation-message {
+    color: #dc3545;
+    margin-top: 10px;
+    font-size: 0.9em;
 }
 </style>
